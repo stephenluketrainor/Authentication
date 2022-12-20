@@ -1,11 +1,17 @@
 //jshint esversion:6
-require("dotenv").config();
+if (process.env.NODE_ENV !== "production") {
+  require("dotenv").config();
+}
+
 const express = require("express");
 const ejs = require("ejs");
 const bodyParser = require("body-parser");
 const path = require("path");
+const session = require("express-session");
+const passport = require("passport");
+const passportLocalMongoose = require("passport-local-mongoose");
 const mongoose = require("mongoose");
-var md5 = require("md5");
+var GoogleStrategy = require("passport-google-oauth20").Strategy;
 
 const app = express();
 
@@ -17,12 +23,19 @@ app.use(
     extended: true,
   })
 );
+app.use(
+  session({
+    secret: "keyboard cats are the best",
+    resave: false,
+    saveUninitialized: false,
+  })
+);
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 mongoose.set("strictQuery", false);
-mongoose.connect(
-  "mongodb+srv://stephen_admin:HG5LdHJjfDEe8KyT@cluster0.q6kribh.mongodb.net/userDB?retryWrites=true&w=majority",
-  { useNewUrlParser: true }
-);
+mongoose.connect(process.env.MONGODBURI, { useNewUrlParser: true });
 
 const db = mongoose.connection;
 db.on("error", (err) => {
@@ -37,7 +50,14 @@ const userSchema = new mongoose.Schema({
   password: String,
 });
 
+userSchema.plugin(passportLocalMongoose);
+
 const User = new mongoose.model("User", userSchema);
+
+passport.use(User.createStrategy());
+
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
 
 app.get("/", (req, res) => {
   res.render("home");
@@ -47,20 +67,37 @@ app.get("/login", (req, res) => {
   res.render("login");
 });
 
-app.post("/login", (req, res) => {
-  const username = req.body.username;
-  const password = md5(req.body.password);
+// this is the new login route, which authenticates first and THEN
+// does the login (which is required to create the session)
+// A failed login (wrong password) will give the browser error
+// "unauthorized".
+app.post(
+  "/login",
+  passport.authenticate("local", {
+    successRedirect: "/secrets",
+    failureRedirect: "/login",
+  })
+);
 
-  User.findOne({ email: username }, (err, foundUser) => {
+app.get("/secrets", nocache, function (req, res) {
+  // The below line was added so we can't display the "/secrets" page
+  // after we logged out using the "back" button of the browser, which
+  // would normally display the browser cache and thus expose the
+  // "/secrets" page we want to protect.
+
+  if (req.isAuthenticated()) {
+    res.render("secrets");
+  } else {
+    res.redirect("/login");
+  }
+});
+
+app.post("/secrets", function (req, res, next) {
+  req.logout(function (err) {
     if (err) {
-      console.log("User not found");
-    } else {
-      if (foundUser) {
-        if (foundUser.password === password) {
-          res.render("secrets");
-        }
-      }
+      return next(err);
     }
+    res.redirect("/");
   });
 });
 
@@ -69,19 +106,29 @@ app.get("/register", (req, res) => {
 });
 
 app.post("/register", (req, res) => {
-  const newUser = new User({
-    email: req.body.username,
-    password: md5(req.body.password),
-  });
-  newUser.save((err) => {
-    if (!err) {
-      res.render("secrets");
-    } else {
-      console.log(err);
+  User.register(
+    { username: req.body.username },
+    req.body.password,
+    (err, user) => {
+      if (err) {
+        console.log(err);
+        res.redirect("/register");
+      } else {
+        passport.authenticate("local")(req, res, () => {
+          res.redirect("/secrets");
+        });
+      }
     }
-  });
+  );
 });
 
 app.listen(3000, () => {
   console.log("listening on port 3000");
 });
+
+function nocache(req, res, next) {
+  res.header("Cache-Control", "private, no-cache, no-store, must-revalidate");
+  res.header("Expires", "-1");
+  res.header("Pragma", "no-cache");
+  next();
+}
