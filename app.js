@@ -98,10 +98,31 @@ passport.use(
   )
 );
 
+passport.use(
+  new TwitterStrategy(
+    {
+      consumerKey: CLIENT_ID_TWITTER,
+      consumerSecret: CLIENT_SECRET_TWITTER,
+      callbackURL: "https://secrets-app-h80j.onrender.com/auth/twitter/secrets",
+    },
+    function (token, tokenSecret, profile, cb) {
+      console.log(profile);
+      User.findOrCreate(
+        { username: profile.id },
+        { provider: "twitter" },
+        function (err, user) {
+          return cb(err, user);
+        }
+      );
+    }
+  )
+);
+
 app.get("/", (req, res) => {
   res.render("home");
 });
 
+// Google Authenticator
 app.get(
   "/auth/google",
   passport.authenticate("google", {
@@ -114,6 +135,18 @@ app.get(
   passport.authenticate("google", { failureRedirect: "/login" }),
   function (req, res) {
     // Successful authentication, redirect to secrets.
+    res.redirect("/secrets");
+  }
+);
+
+// Twitter authentication
+app.get("/auth/twitter", passport.authenticate("twitter"));
+
+app.get(
+  "/auth/twitter/secrets",
+  passport.authenticate("twitter", { failureRedirect: "/login" }),
+  function (req, res) {
+    // Successful authentication, redirect home.
     res.redirect("/secrets");
   }
 );
