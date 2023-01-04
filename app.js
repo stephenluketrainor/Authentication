@@ -13,6 +13,7 @@ const passportLocalMongoose = require("passport-local-mongoose");
 const mongoose = require("mongoose");
 const findOrCreate = require("mongoose-findorcreate");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
+const TwitterStrategy = require("passport-twitter").Strategy;
 const app = express();
 
 app.use(express.static(path.join(__dirname, "public")));
