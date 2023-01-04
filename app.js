@@ -102,8 +102,8 @@ passport.use(
 passport.use(
   new TwitterStrategy(
     {
-      consumerKey: CLIENT_ID_TWITTER,
-      consumerSecret: CLIENT_SECRET_TWITTER,
+      consumerKey: process.env.CLIENT_ID_TWITTER,
+      consumerSecret: process.env.CLIENT_SECRET_TWITTER,
       callbackURL: "https://secrets-app-h80j.onrender.com/auth/twitter/secrets",
     },
     function (token, tokenSecret, profile, cb) {
