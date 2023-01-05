@@ -107,8 +107,7 @@ passport.use(
       callbackURL: "https://secrets-app-h80j.onrender.com/auth/twitter/secrets",
     },
     function (token, tokenSecret, profile, cb) {
-      console.log(profile);
-      User.findOrCreate({ twitterId: profile.id }, function (err, user) {
+      User.findOrCreate({ username: profile.id }, function (err, user) {
         return cb(err, user);
       });
     }
@@ -137,13 +136,13 @@ app.get(
 );
 
 // Twitter authentication
-app.get("/auth/twitter", (err) => {
-  if (err) {
-    console.log(err);
-  } else {
-    passport.authenticate("twitter");
-  }
-});
+app.get(
+  "/auth/twitter",
+  passport.authenticate("twitter", {
+    // <6> Scopes
+    scope: ["tweet.read", "users.read", "offline.access"],
+  })
+);
 
 app.get(
   "/auth/twitter/secrets",
