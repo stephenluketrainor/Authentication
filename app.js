@@ -108,13 +108,9 @@ passport.use(
     },
     function (token, tokenSecret, profile, cb) {
       console.log(profile);
-      User.findOrCreate(
-        { username: profile.id },
-        { provider: "twitter" },
-        function (err, user) {
-          return cb(err, user);
-        }
-      );
+      User.findOrCreate({ twitterId: profile.id }, function (err, user) {
+        return cb(err, user);
+      });
     }
   )
 );
@@ -141,7 +137,13 @@ app.get(
 );
 
 // Twitter authentication
-app.get("/auth/twitter", passport.authenticate("twitter"));
+app.get("/auth/twitter", (err) => {
+  if (err) {
+    console.log(err);
+  } else {
+    passport.authenticate("twitter");
+  }
+});
 
 app.get(
   "/auth/twitter/secrets",
